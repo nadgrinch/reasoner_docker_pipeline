@@ -1,0 +1,70 @@
+services:
+  tiago_sim:
+    build:
+      context: .
+      dockerfile: Dockerfile  # Using your improved Dockerfile
+    container_name: tiago_sim
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - ROS_MASTER_URI=http://tiago_sim:11311
+      - ROS_HOSTNAME=tiago_sim
+      - LIBGL_ALWAYS_SOFTWARE=1  # For software rendering without GPU
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ../noetic_ws:/tiago_dual_public_ws/src/user_packages  # Mount your user packages
+      - ~/.Xauthority:/root/.Xauthority:rw  # For X11 authentication
+    ports:
+      - "11311:11311"  # ROS master port
+      - "11345:11345"  # Gazebo master port
+    networks:
+      - docker_net
+    # For hardware acceleration if available:
+    # devices:
+    #   - /dev/dri:/dev/dri
+    command: bash -c "source /tiago_dual_public_ws/devel/setup.bash && roslaunch tiago_dual_gazebo tiago_dual_gazebo.launch public_sim:=true end_effector_left:=pal-gripper end_effector_right:=pal-gripper"
+    stdin_open: true
+    tty: true
+
+
+  noetic_sim:
+    image: tiago_noetic
+    container_name: noetic_sim
+    build:
+      context: ../src/noetic/
+      dockerfile: Dockerfile
+    volumes:
+      - ../noetic_ws:/tiago_dual_public_ws/src/user_packages
+    environment:
+      - "ROS_MASTER_URI=http://tiago_sim:11311"
+      - "ROS_HOSTNAME=noetic_sim"
+    networks:
+      - docker_net
+    depends_on:
+      - tiago_sim
+    command: bash
+    stdin_open: true
+    tty: true
+
+  # ros2_sim:
+  #   image: tiago_ros2
+  #   container_name: ros2_sim
+  #   build:
+  #     context: ../src/ros2/
+  #     dockerfile: Dockerfile
+  #   volumes:
+  #     - ../ros2_ws:/ros2_ws/src/user_packages
+  #   environment:
+  #     - "ROS_DOMAIN_ID=0"
+  #     - "ROS_HOSTNAME=ros2_sim"
+  #   networks:
+  #     - docker_net
+  #   depends_on:
+  #     - tiago_sim
+  #   command: bash
+  #   stdin_open: true
+  #   tty: true
+
+networks:
+  docker_net:
+    driver: bridge
