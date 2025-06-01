@@ -1,0 +1,6 @@
+[submodule "noetic_ws/object_detector_msgs"]
+	path = noetic_ws/object_detector_msgs
+	url = git@github.com:v4r-tuwien/object_detector_msgs.git
+[submodule "melodic_ws/Motion_stack"]
+	path = melodic_ws/Motion_stack
+	url = git@github.com:ichores-research/Motion_stack.git
