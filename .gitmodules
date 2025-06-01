@@ -1,9 +1,0 @@
-[submodule "melodic_ws/Motion_stack"]
-	path = melodic_ws/Motion_stack
-	url = git@github.com:ichores-research/Motion_stack.git
-[submodule "noetic_ws/Motion_stack"]
-	path = noetic_ws/Motion_stack
-	url = git@github.com:ichores-research/Motion_stack.git
-[submodule "ros2_ws/Reasoner"]
-	path = ros2_ws/Reasoner
-	url = git@github.com:ichores-research/Reasoner.git
