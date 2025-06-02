@@ -56,6 +56,8 @@ ARG ROSDEP_IGNORE="urdf_test omni_drive_controller orocos_kdl pal_filters libgaz
 
 RUN apt-get update && rosdep install --from-paths src --ignore-src -y --rosdistro noetic --skip-keys="${ROSDEP_IGNORE}"
 
+RUN pip3 install pyzmq
+
 RUN bash -c "source /opt/ros/noetic/setup.bash \
     && catkin build -DCATKIN_ENABLE_TESTING=0 -j $(expr `nproc` / 2) \
     && echo 'source $REPO_WS/devel/setup.bash' >> ~/.bashrc"

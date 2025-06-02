@@ -1,25 +1,25 @@
 services:
-#  melodic:
-#     image: tiago_melodic
-#     privileged: true
-#     network_mode: "host"
-#     container_name: tiago_melodic
-#     build:
-#       context: ./src/melodic/
-#       dockerfile: Dockerfile
-#     volumes:
-#       - /entrypoint.sh:/src/melodic/entrypoint.sh
-#       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-#       - ./melodic_ws:/tiago_public_ws/src/user_packages
-#     working_dir: /tiago_public_ws
-#     environment:
-#       - ROS_MASTER_URI=${ROS_MASTER_URI:-http://tiago-114c:11311}
-#       - ROS_IP=${ROS_IP:-10.68.0.128}
-#       - DISPLAY=${DISPLAY}
-#       - QT_X11_NO_MITSHM=1
-#     command: bash #rosrun bridge_noetic_melodic bridge_noetic_melodic.py
-#     stdin_open: true
-#     tty: true
+  melodic:
+    image: tiago_melodic
+    privileged: true
+    network_mode: "host"
+    container_name: tiago_melodic
+    build:
+      context: ./src/melodic/
+      dockerfile: Dockerfile
+    volumes:
+      - /entrypoint.sh:/src/melodic/entrypoint.sh
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ./melodic_ws:/tiago_public_ws/src/user_packages
+    working_dir: /tiago_public_ws
+    environment:
+      - ROS_MASTER_URI=${ROS_MASTER_URI:-http://tiago-114c:11311}
+      - ROS_IP=${ROS_IP:-10.68.0.128}
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    command: bash #rosrun bridge_noetic_melodic bridge_noetic_melodic.py
+    stdin_open: true
+    tty: true
  
   noetic:
     image: tiago_noetic
@@ -41,19 +41,18 @@ services:
     stdin_open: true
     tty: true
 
-#  ros2:
-#    # Find all that needs to be here!
-#    image: tiago_ros2
-#    privileged: true
-#    network_mode: "host"
-#    build:
-#      context: ./src/ros2/
-#      dockerfile: Dockerfile
-#    container_name: tiago_ros2
-#    volumes:
-#      - ./ros2_ws:/ros2_ws/src/user_packages
-#    environment:
-#      - ROS_DOMAIN_ID=0  # ROS2 domain configuration
-#    command: bash
-#    stdin_open: true
-#    tty: true
+  ros2:
+    image: tiago_ros2
+    privileged: true
+    network_mode: "host"
+    container_name: tiago_ros2
+    build:
+      context: ./src/ros2/
+      dockerfile: Dockerfile
+    volumes:
+     - ./ros2_ws:/ros2_ws/src/user_packages
+    environment:
+      - ROS_DOMAIN_ID=0  # ROS2 domain configuration
+    command: bash
+    stdin_open: true
+    tty: true

@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
+RUN pip3 install pyzmq
+
 # Set up a workspace
 WORKDIR /ros2_ws
 
