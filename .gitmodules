@@ -4,3 +4,6 @@
 [submodule "melodic_ws/Motion_stack"]
 	path = melodic_ws/Motion_stack
 	url = git@github.com:ichores-research/Motion_stack.git
+[submodule "noetic_ws/vision_msgs"]
+	path = noetic_ws/vision_msgs
+	url = git@github.com:ros-perception/vision_msgs.git
