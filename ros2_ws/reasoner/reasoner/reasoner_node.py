@@ -87,7 +87,7 @@ class Reasoner(Node):
         self.feedback_thread.start()
         
         # Create timer for main processing loop
-        self.timer = self.create_timer(0.2, self.main_loop) 
+        self.timer = self.create_timer(0.2, self.main_loop) # speedup?
         
         self.get_logger().info('Reasoner node initialized')
 
@@ -175,7 +175,7 @@ class Reasoner(Node):
             probs_dict = handler(step, gdrn_objs)
 
             if not probs_dict: # reasoning failed somewhere
-                self.get_logger().warn(f"Reasonong stopped due to logic.")
+                self.get_logger().warn(f"Reasoning stopped due to logic.")
                 return
             
             # Publish the results of reasoning to motion_stack
@@ -190,12 +190,12 @@ class Reasoner(Node):
             # wait for motion execution to finish
             while self.is_waiting_for_motion_execution():
                 self.get_logger().info(f"Waiting for motion execution...")
-                time.sleep(0.5)
+                time.sleep(0.5) # speedup?
 
         # Signal a start of a new episode, processing complete
         self.get_logger().info(f"Episode processing complete.")
         self.signal_new_episode()
-        time.sleep(0.2)     
+        time.sleep(0.2) # speedup?
 
     def _handle_pick(self, step, gdrn_objs):
         """

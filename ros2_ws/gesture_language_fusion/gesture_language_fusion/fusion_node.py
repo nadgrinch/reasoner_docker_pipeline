@@ -278,7 +278,7 @@ class GestureLanguageMerger(RosNode):
         )
 
         # create timer for the main loop for it to function
-        self.timer = self.create_timer(0.2, self.main_loop) # 2.0
+        self.timer = self.create_timer(0.2, self.main_loop) # 2.0 speedup? higher frequency
 
     def _start_episode_cb(self, msg: Bool):
         """

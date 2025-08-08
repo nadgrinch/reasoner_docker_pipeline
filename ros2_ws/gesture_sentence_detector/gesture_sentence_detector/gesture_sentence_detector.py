@@ -157,7 +157,7 @@ class GestureDeicticSentence(PointingObjectGetter, SceneGetter, HandListener, Ro
         with self.lock:
             return self.reasoner_wait_flag
 
-    def step(self):
+    def step(self): # speedup? place for petr vanc code?
         """
         Performs one pointing gesture solution evaluation
         1. Waits step_period
@@ -249,7 +249,7 @@ class GestureDeicticSentence(PointingObjectGetter, SceneGetter, HandListener, Ro
             self.episode_end_flag = True
         
         # publish the gestures in current episode and clear the buffer for the next one 
-        time.sleep(0.5)
+        time.sleep(0.5) # speedup?
         self.gesture_sentence_publisher.publish(
             self.export_solutions_to_HRICommand(self.deictic_solutions)
         )
@@ -277,7 +277,7 @@ class GestureDeicticSentence(PointingObjectGetter, SceneGetter, HandListener, Ro
 def spinning_threadfn(sp):
     while rclpy.ok():
         sp.spin_once(sem=True)
-        time.sleep(0.01)
+        time.sleep(0.01) # speedup?
 
 def main():
     rclpy.init()
