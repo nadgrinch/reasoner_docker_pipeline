@@ -1,0 +1,10 @@
+microphone_analyzer:
+  sample_rate: 48000
+  chunk_size: 1024
+  num_channels: 2
+  fft_size: 1024
+  energy_threshold: 500
+  min_speech_duration: 0.5
+  silence_duration_sec: 2.0
+  buffer_max_sec: 30
+  audio_topic: "/audio/raw_andrea"

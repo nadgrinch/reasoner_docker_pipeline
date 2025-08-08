@@ -1,0 +1,4 @@
+<launch>
+  <rosparam file="$(find microphone_analyzer)/config/params.yaml" command="load"/>
+  <node pkg="microphone_analyzer" type="analyzer.py" name="microphone_analyzer" output="screen"/>
+</launch>
