@@ -8,3 +8,16 @@ microphone_analyzer:
   silence_duration_sec: 2.0
   buffer_max_sec: 30
   audio_topic: "/audio/raw_andrea"
+
+microphone_vad_stt:
+  sample_rate: 48000
+  chunk_size: 1024
+  num_channels: 1
+  min_speech_duration_ms: 250
+  max_silence_duration: 3.0
+  max_buffer_duration: 10
+  audio_topic: '/audio/raw_andrea'
+  pre_filter: false
+  filter_order: 6
+  low_cutoff_frequency: 300
+  high_cutoff_frequency: 3400
