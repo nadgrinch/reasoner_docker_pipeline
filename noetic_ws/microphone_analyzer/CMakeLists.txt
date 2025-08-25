@@ -10,8 +10,6 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package()
 
 catkin_install_python(PROGRAMS
-  src/generate_noise_profile.py
-  src/analyzer.py
   src/vad_stt.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

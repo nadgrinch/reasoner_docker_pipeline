@@ -7,6 +7,3 @@
 [submodule "noetic_ws/vision_msgs"]
 	path = noetic_ws/vision_msgs
 	url = git@github.com:ros-perception/vision_msgs.git
-[submodule "noetic_ws/silero_vad"]
-	path = noetic_ws/silero_vad
-	url = https://github.com/snakers4/silero-vad
