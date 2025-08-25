@@ -39,7 +39,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping \
     ipython3 \
     python-is-python3 \
-    python3-scipy \
     python3-wstool \
     python3-networkx \
     python3-pip  \
@@ -56,7 +55,7 @@ ARG ROSDEP_IGNORE="urdf_test omni_drive_controller orocos_kdl pal_filters libgaz
 
 RUN apt-get update && rosdep install --from-paths src --ignore-src -y --rosdistro noetic --skip-keys="${ROSDEP_IGNORE}"
 
-RUN pip3 install --no-cache-dir pyzmq soundfile torchaudio torch openai-whisper
+RUN pip3 install --no-cache-dir numpy scipy pyzmq webrtcvad soundfile torchaudio torch openai-whisper
 
 RUN bash -c "source /opt/ros/noetic/setup.bash \
     && catkin build -DCATKIN_ENABLE_TESTING=0 -j $(expr `nproc` / 2) \
