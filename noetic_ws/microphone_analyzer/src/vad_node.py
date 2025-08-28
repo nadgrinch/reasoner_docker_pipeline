@@ -58,7 +58,8 @@ class VADNode:
     self.merge_gap_ms = int(self.cfg.get("merge_gap_ms", 300))
     self.num_channels = int(self.cfg.get("num_channels", 1))
     self.audio_topic = self.cfg.get("audio_topic", "/audio/raw_andrea")
-    self.recordings_path = os.path.join(pkg_dir, self.cfg.get("recordings_path", "recordings"))
+    self.recordings_path = os.path.join(
+      pkg_dir, self.cfg.get("recordings_path", "recordings"))
     os.makedirs(self.recordings_path, exist_ok=True)
 
     # derived
@@ -68,7 +69,8 @@ class VADNode:
     self.vad_frame_samples = int(self.vad_rate * (self.frame_ms / 1000.0))
 
     # buffers and state
-    self.prebuffer_max_frames = int(np.ceil(self.prebuffer_s * self.input_rate / self.frame_samples_in))
+    self.prebuffer_max_frames = int(np.ceil(
+      self.prebuffer_s * self.input_rate / self.frame_samples_in))
     self.raw_prebuffer = []  # tuples of (timestamp, int16 numpy)
     self.lock = Lock()
 
@@ -87,6 +89,9 @@ class VADNode:
     # subscription
     rospy.Subscriber(self.audio_topic, AudioData, self.audio_cb, queue_size=50)
     rospy.loginfo(f"VAD node initialized. Listening to {self.audio_topic}")
+    
+    # debug
+    self.debug_cnt = 0
 
   def audio_cb(self, msg: AudioData):
     # msg.data is bytes of int16 PCM (interleaved if multi-channel)
@@ -104,8 +109,13 @@ class VADNode:
         self.raw_prebuffer = self.raw_prebuffer[-self.prebuffer_max_frames:]
 
     # process frame for VAD: resample this frame to vad_rate and run webrtcvad
-    # note: msg likely contains small chunks; we assume each arrival is one frame or multiple concatenated frames.
+    # note: msg likely contains small chunks; 
+    # we assume each arrival is one frame or multiple concatenated frames.
     # For generality, process in contiguous blocks of frame_samples_in
+    self.debug_cnt += 1
+    if self.debug_cnt >= 10:
+      self.debug_cnt = 0
+      rospy.logger.info(f"Audio callback")
     samples = arr
     offset = 0
     while offset + self.frame_samples_in <= len(samples):
