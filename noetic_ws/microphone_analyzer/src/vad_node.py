@@ -42,14 +42,14 @@ class VADNode:
   def __init__(self):
     rospy.init_node("vad_node", anonymous=False)
 
-    pkg_dir = rospy.get_param("~pkg_dir", os.path.dirname(__file__))
+    pkg_dir = rospy.get_param("~pkg_dir", os.path.dirname(os.path.dirname(__file__)))
     rospy.loginfo(f"pkg_dir: {pkg_dir}")
     self.cfg = rospy.get_param("vad_stt")
 
     # config
     self.input_rate = int(self.cfg.get("input_sample_rate", 48000))
     self.vad_rate = int(self.cfg.get("vad_sample_rate", 16000))
-    self.frame_ms = int(self.cfg.get("frame_ms", 30))
+    self.frame_ms = int(self.cfg.get("frame_ms", 20))
     self.vad_mode = int(self.cfg.get("vad_mode", 2))
     self.prebuffer_s = float(self.cfg.get("prebuffer_seconds", 1.0))
     self.hang_in_ms = int(self.cfg.get("hang_in_ms", 50))
@@ -85,6 +85,7 @@ class VADNode:
     self.hang_out_frames = int(np.ceil(self.hang_out_ms / self.frame_ms))
     self.min_speech_frames = int(np.ceil(self.min_speech_ms / self.frame_ms))
     self.merge_gap_frames = int(np.ceil(self.merge_gap_ms / self.frame_ms))
+    self._last_segment = None # tuple(start_time, end_time, audio_numpy)
 
     # subscription
     rospy.Subscriber(self.audio_topic, AudioData, self.audio_cb, queue_size=50)
@@ -92,6 +93,7 @@ class VADNode:
     
     # debug
     self.debug_cnt = 0
+    self.debug_switch_1 = False
 
   def audio_cb(self, msg: AudioData):
     # msg.data is bytes of int16 PCM (interleaved if multi-channel)
@@ -112,12 +114,13 @@ class VADNode:
     # note: msg likely contains small chunks; 
     # we assume each arrival is one frame or multiple concatenated frames.
     # For generality, process in contiguous blocks of frame_samples_in
-    self.debug_cnt += 1
-    if self.debug_cnt >= 10:
-      self.debug_cnt = 0
-      rospy.logger.info(f"Audio callback")
     samples = arr
     offset = 0
+    
+    self.debug_cnt += 1
+    # if self.debug_cnt % 10 == 0:
+    #   rospy.loginfo(f"Audio callback, timestamp: {tstamp.to_time()}, counter: {self.debug_cnt}, len: {len(samples)}, samples_in: {self.frame_samples_in}")
+    
     while offset + self.frame_samples_in <= len(samples):
       block = samples[offset:offset + self.frame_samples_in]
       offset += self.frame_samples_in
@@ -129,14 +132,18 @@ class VADNode:
     # webrtcvad expects raw bytes 16-bit little-endian
     try:
       is_speech = self.vad.is_speech(frame_vad.tobytes(), sample_rate=self.vad_rate)
+      # is_speech = self.vad.is_speech(in_frame_int16, sample_rate=self.input_rate)
     except Exception as e:
       rospy.logwarn_throttle(5, f"VAD error: {e}")
       is_speech = False
 
     # state machine and buffering
     with self.lock:
+      if is_speech or self.state != "IDLE":
+        rospy.loginfo(f"Process Frame, state: {self.state}. is_speech: {is_speech}")
       if is_speech:
         self.last_voice_time = ros_time
+        # debug
 
       if self.state == "IDLE":
         if is_speech:
@@ -191,15 +198,43 @@ class VADNode:
     end_time = times[-1] + rospy.Duration(self.hang_out_ms / 1000.0)
 
     # save wav
+    merge_gap_sec = self.merge_gap_ms / 1000
+    if self._last_segment is not None:
+      last_start, last_end, last_audio, last_path = self._last_segment
+      # rospy.loginfo(f"start: {type(last_start)}, end: {type(last_end)}")
+      gap = start_time.to_sec() - last_end.to_sec()
+      if gap <= merge_gap_sec:
+        merged_audio = np.concatenate([last_audio, audio])
+        merged_start = last_start
+        merged_end = end_time
+        try:
+          if os.path.exists(last_path):
+            os.remove(last_path)
+        except Exception as e:
+          rospy.logwarn_throttle(10, f"Exception when removing {last_path}: {e}")
+        
+        ts = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+        fname = f"speech_{ts}_{int(len(merged_audio)/self.input_rate*1000)}.wav"
+        fpath = os.path.join(self.recordings_path, fname)
+        try:
+          write_wav(fpath, merged_audio, self.input_rate, channels=1)
+          rospy.loginfo(f"Saved speech segment {fpath} dur={int(len(merged_audio)/self.input_rate*1000)}ms start={merged_start.to_sec():.3f} end={merged_end.to_sec():.3f}")
+          self._last_segment = (merged_start, merged_end, merged_audio, fpath)
+        except Exception as e:
+          rospy.logerr(f"Failed to save wav: {e}")
+        return
+    # otherwise      
     ts = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-    fname = f"speech_{ts}_{int(start_time.to_sec()*1000)}_{int(end_time.to_sec()*1000)}.wav"
+    fname = f"speech_{ts}_{duration_ms}.wav"
     fpath = os.path.join(self.recordings_path, fname)
     try:
       write_wav(fpath, audio, self.input_rate, channels=1)
       rospy.loginfo(f"Saved speech segment {fpath} dur={duration_ms}ms start={start_time.to_sec():.3f} end={end_time.to_sec():.3f}")
+      self._last_segment = (start_time, end_time, audio, fpath)
     except Exception as e:
       rospy.logerr(f"Failed to save wav: {e}")
-
+    
+    
     # publish a simple ROS log entry and optionally you could publish a custom message here.
     # TODO: publish SpeechSegment msg if you have one.
 
