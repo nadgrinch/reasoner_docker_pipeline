@@ -49,7 +49,7 @@ class VADNode:
     # config
     self.input_rate = int(self.cfg.get("input_sample_rate", 48000))
     self.vad_rate = int(self.cfg.get("vad_sample_rate", 16000))
-    self.frame_ms = int(self.cfg.get("frame_ms", 20))
+    self.frame_ms = int(self.cfg.get("frame_ms", 30))
     self.vad_mode = int(self.cfg.get("vad_mode", 2))
     self.prebuffer_s = float(self.cfg.get("prebuffer_seconds", 1.0))
     self.hang_in_ms = int(self.cfg.get("hang_in_ms", 50))
@@ -73,6 +73,7 @@ class VADNode:
       self.prebuffer_s * self.input_rate / self.frame_samples_in))
     self.raw_prebuffer = []  # tuples of (timestamp, int16 numpy)
     self.lock = Lock()
+    self._prebuffer_max_age = float(self.prebuffer_s)
 
     # vad and state machine
     self.vad = webrtcvad.Vad(self.vad_mode)
@@ -139,8 +140,8 @@ class VADNode:
 
     # state machine and buffering
     with self.lock:
-      if is_speech or self.state != "IDLE":
-        rospy.loginfo(f"Process Frame, state: {self.state}. is_speech: {is_speech}")
+      # if is_speech or self.state != "IDLE":
+      #   rospy.loginfo(f"Process Frame, state: {self.state}. is_speech: {is_speech}")
       if is_speech:
         self.last_voice_time = ros_time
         # debug
@@ -148,6 +149,7 @@ class VADNode:
       if self.state == "IDLE":
         if is_speech:
           # enter possible speech
+          rospy.loginfo("IDLE -> POSSIBLE_SPEECH")
           self.state = "POSSIBLE_SPEECH"
           self.speech_frames = [(ros_time, in_frame_int16)]
           self.possible_count = 1
@@ -157,6 +159,7 @@ class VADNode:
           self.speech_frames.append((ros_time, in_frame_int16))
           self.possible_count += 1
           if self.possible_count >= self.hang_in_frames:
+            rospy.loginfo("POSSIBLE_SPEECH -> SPEECH")
             self.state = "SPEECH"
         else:
           # false alarm, go back to IDLE
@@ -171,9 +174,11 @@ class VADNode:
             self.silence_count = 1
           else:
             self.silence_count += 1
+          rospy.loginfo("SPEECH frame added")
           self.speech_frames.append((ros_time, in_frame_int16))
           if self.silence_count >= self.hang_out_frames:
             # finalize segment
+            rospy.loginfo("SPEECH -> IDLE")
             self.finalize_segment()
             self.state = "IDLE"
             self.speech_frames = []
@@ -183,6 +188,7 @@ class VADNode:
         self.state = "IDLE"
 
   def finalize_segment(self):
+    rospy.loginfo("entered finalize_segment")
     if not self.speech_frames:
       return
     # assemble numpy audio from speech_frames (they are at input_rate)
@@ -191,14 +197,21 @@ class VADNode:
     first_time = times[0]
     pre_start_time = first_time - pre_roll
 
-    with self.lock:
-      pre_frames = [f for (ts, f) in self.raw_prebuffer if ts >= pre_start_time and ts < first_time]
-      cutoff = rospy.Time.now() - rospy.Duration(self._prebuffer_max_age)
-      self.raw_prebuffer = [(ts, f) for (ts, f) in self.raw_prebuffer if ts >= cutoff]
+    pre_frames = []
+    pre_times = []
+    cutoff = rospy.Time.now() - rospy.Duration(self._prebuffer_max_age)
+    cut_frames = []
+    for (ts, f) in self.raw_prebuffer:
+      if ts >= pre_start_time and ts < first_time:
+        pre_frames.append(f)
+        pre_times.append(ts)
+      if ts >= cutoff:
+        cut_frames.append((ts, f))
+    self.raw_prebuffer = cut_frames
 
     if pre_frames:
       audio = np.concatenate(pre_frames + list(frames)).astype(np.int16)
-      start_time = pre_frames[0][0]
+      start_time = pre_times[0]
     else:
       audio = np.concatenate(frames).astype(np.int16)
       start_time = first_time - pre_roll
@@ -243,6 +256,7 @@ class VADNode:
       rospy.loginfo(f"Saved speech segment {fpath} dur={duration_ms}ms start={start_time.to_sec():.3f} end={end_time.to_sec():.3f}")
       self._last_segment = (start_time, end_time, audio, fpath)
     except Exception as e:
+      rospy.loginfo(f"{type(first_time)},{type(pre_roll)},{type(start_time)},{type(end_time)}")
       rospy.logerr(f"Failed to save wav: {e}")
       
     # publish a simple ROS log entry and optionally you could publish a custom message here.
