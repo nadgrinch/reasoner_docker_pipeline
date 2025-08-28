@@ -187,21 +187,31 @@ class VADNode:
       return
     # assemble numpy audio from speech_frames (they are at input_rate)
     times, frames = zip(*self.speech_frames)
-    audio = np.concatenate(frames).astype(np.int16)
+    pre_roll = rospy.Duration(self.hang_in_ms / 1000.0)
+    first_time = times[0]
+    pre_start_time = first_time - pre_roll
+
+    with self.lock:
+      pre_frames = [f for (ts, f) in self.raw_prebuffer if ts >= pre_start_time and ts < first_time]
+      cutoff = rospy.Time.now() - rospy.Duration(self._prebuffer_max_age)
+      self.raw_prebuffer = [(ts, f) for (ts, f) in self.raw_prebuffer if ts >= cutoff]
+
+    if pre_frames:
+      audio = np.concatenate(pre_frames + list(frames)).astype(np.int16)
+      start_time = pre_frames[0][0]
+    else:
+      audio = np.concatenate(frames).astype(np.int16)
+      start_time = first_time - pre_roll
+
+    end_time = times[-1] + rospy.Duration(self.hang_out_ms / 1000.0)
     duration_ms = int(len(audio) / self.input_rate * 1000)
     if duration_ms < self.min_speech_ms:
       rospy.loginfo_throttle(10, f"Ignored short segment {duration_ms}ms")
       return
 
-    # compute start and end times using last frame timestamps and pre-roll
-    start_time = times[0] - rospy.Duration(self.hang_in_ms / 1000.0)
-    end_time = times[-1] + rospy.Duration(self.hang_out_ms / 1000.0)
-
-    # save wav
-    merge_gap_sec = self.merge_gap_ms / 1000
+    merge_gap_sec = self.merge_gap_ms / 1000.0
     if self._last_segment is not None:
       last_start, last_end, last_audio, last_path = self._last_segment
-      # rospy.loginfo(f"start: {type(last_start)}, end: {type(last_end)}")
       gap = start_time.to_sec() - last_end.to_sec()
       if gap <= merge_gap_sec:
         merged_audio = np.concatenate([last_audio, audio])
@@ -210,22 +220,23 @@ class VADNode:
         try:
           if os.path.exists(last_path):
             os.remove(last_path)
-        except Exception as e:
-          rospy.logwarn_throttle(10, f"Exception when removing {last_path}: {e}")
+        except Exception:
+          pass
         
         ts = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-        fname = f"speech_{ts}_{int(len(merged_audio)/self.input_rate*1000)}.wav"
+        fname = f"speech_{ts}_{int(len(merged_audio)/self.input_rate*1000)}ms.wav"
         fpath = os.path.join(self.recordings_path, fname)
         try:
           write_wav(fpath, merged_audio, self.input_rate, channels=1)
-          rospy.loginfo(f"Saved speech segment {fpath} dur={int(len(merged_audio)/self.input_rate*1000)}ms start={merged_start.to_sec():.3f} end={merged_end.to_sec():.3f}")
+          rospy.loginfo(f"Merged+Saved speech segment {fpath} dur={int(len(merged_audio)/self.input_rate*1000)}ms start={merged_start.to_sec():.3f} end={merged_end.to_sec():.3f}")
           self._last_segment = (merged_start, merged_end, merged_audio, fpath)
         except Exception as e:
-          rospy.logerr(f"Failed to save wav: {e}")
+          rospy.logerr(f"Failed to save merged wav: {e}")
         return
-    # otherwise      
+
+    # otherwise save as new segment and record as last_segment
     ts = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-    fname = f"speech_{ts}_{duration_ms}.wav"
+    fname = f"speech_{ts}_{duration_ms}ms.wav"
     fpath = os.path.join(self.recordings_path, fname)
     try:
       write_wav(fpath, audio, self.input_rate, channels=1)
@@ -233,8 +244,7 @@ class VADNode:
       self._last_segment = (start_time, end_time, audio, fpath)
     except Exception as e:
       rospy.logerr(f"Failed to save wav: {e}")
-    
-    
+      
     # publish a simple ROS log entry and optionally you could publish a custom message here.
     # TODO: publish SpeechSegment msg if you have one.
 
