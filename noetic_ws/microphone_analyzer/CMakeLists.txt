@@ -10,7 +10,6 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package()
 
 catkin_install_python(PROGRAMS
-  src/vad_stt.py
   src/vad_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

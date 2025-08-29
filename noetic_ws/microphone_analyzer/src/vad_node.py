@@ -259,8 +259,7 @@ class VADNode:
       rospy.loginfo(f"{type(first_time)},{type(pre_roll)},{type(start_time)},{type(end_time)}")
       rospy.logerr(f"Failed to save wav: {e}")
       
-    # publish a simple ROS log entry and optionally you could publish a custom message here.
-    # TODO: publish SpeechSegment msg if you have one.
+    # TODO: transcript the audio using whisper then published to /audio/transcription topic of type e.g. String
 
   def spin(self):
     rospy.spin()
