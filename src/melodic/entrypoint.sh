@@ -5,10 +5,10 @@ set -e
 source /opt/ros/melodic/setup.bash
 
 # Go to your workspace directory
-cd /tiago_public_ws
+cd /tiago_dual_public_ws
 
 # Build user_packages if it exists
-USER_PKG_DIR="/tiago_public_ws/src/user_packages/"
+USER_PKG_DIR="/tiago_dual_public_ws/src/user_packages/"
 ALL_PACKAGES=$(catkin list)
 USER_PACKAGE_PATHS=$(find "$USER_PKG_DIR" -mindepth 1 -maxdepth 3 -type f -name 'package.xml' -exec dirname {} \;)
 PACKAGES_TO_BUILD=()
