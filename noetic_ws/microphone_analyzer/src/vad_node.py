@@ -6,6 +6,8 @@ import time
 import yaml
 import rospy
 import webrtcvad
+import torch
+import whisper
 import numpy as np
 from scipy.signal import resample_poly
 from audio_common_msgs.msg import AudioData
@@ -42,7 +44,8 @@ class VADNode:
   def __init__(self):
     rospy.init_node("vad_node", anonymous=False)
 
-    pkg_dir = rospy.get_param("~pkg_dir", os.path.dirname(os.path.dirname(__file__)))
+    pkg_dir = rospy.get_param("~pkg_dir",
+                              os.path.dirname(os.path.dirname(__file__)))
     rospy.loginfo(f"pkg_dir: {pkg_dir}")
     self.cfg = rospy.get_param("vad_stt")
 
@@ -75,11 +78,15 @@ class VADNode:
     self.lock = Lock()
     self._prebuffer_max_age = float(self.prebuffer_s)
 
-    # vad and state machine
+    # vad, state machine, whisper
     self.vad = webrtcvad.Vad(self.vad_mode)
     self.state = "IDLE"
     self.speech_frames = []  # list of (timestamp, int16 numpy at input_rate)
     self.last_voice_time = None
+    self.whisper = whisper.load_model("base")
+    self.whisper = torch.quantization.quantize_dynamic(self.whisper,
+                                                       {torch.nn.Linear},
+                                                       dtype=torch.qint8)
 
     # frame counters for hang logic (in ms)
     self.hang_in_frames = int(np.ceil(self.hang_in_ms / self.frame_ms))
@@ -167,6 +174,7 @@ class VADNode:
           self.speech_frames = []
       elif self.state == "SPEECH":
         if is_speech:
+          rospy.loginfo("SPEECH frame added")
           self.speech_frames.append((ros_time, in_frame_int16))
         else:
           # start possible silence
@@ -245,6 +253,7 @@ class VADNode:
           self._last_segment = (merged_start, merged_end, merged_audio, fpath)
         except Exception as e:
           rospy.logerr(f"Failed to save merged wav: {e}")
+        self.publish_whisper(merged_audio)
         return
 
     # otherwise save as new segment and record as last_segment
@@ -259,8 +268,19 @@ class VADNode:
       rospy.loginfo(f"{type(first_time)},{type(pre_roll)},{type(start_time)},{type(end_time)}")
       rospy.logerr(f"Failed to save wav: {e}")
       
-    # TODO: transcript the audio using whisper then published to /audio/transcription topic of type e.g. String
+    self.publish_whisper(audio)
 
+  def publish_whisper(self, audio):
+    # TODO: transcript the audio using whisper then published to /audio/transcription topic of type e.g. String
+    audio_text = self.transcribe_audio_segment(audio)
+    rospy.loginfo(f"Transcribed audio: {audio_text}")
+    
+  
+  def transcribe_audio_segment(self, audio: np.ndarray):
+    audio_float32 = audio.astype(np.float32) / 32768.0
+    result = self.whisper.transcribe(audio_float32, fp16=False) # fp16=True if GPU
+    return result["text"]
+  
   def spin(self):
     rospy.spin()
 
